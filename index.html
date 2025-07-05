@@ -23,6 +23,9 @@
     h1 {
       margin-bottom: 1rem;
     }
+    input[type="file"] {
+      margin: 1rem 0;
+    }
     .btn {
       padding: 0.6rem 1.5rem;
       background-color: #007BFF;
@@ -40,12 +43,8 @@
       font-size: 0.9rem;
       color: #666;
     }
-    iframe {
-      margin-top: 2rem;
-      width: 100%;
-      height: 600px;
-      border: none;
-      border-radius: 12px;
+    #output {
+      margin-top: 1rem;
     }
   </style>
 </head>
@@ -53,14 +52,58 @@
   <div class="container">
     <h1>🎙️ Remove Background Music from Video</h1>
     <p>Upload your video and remove background music while keeping the voice.</p>
-    <p><strong>Step 1:</strong> Open the tool below (Google Colab)</p>
-    <p><strong>Step 2:</strong> Upload your video file</p>
-    <p><strong>Step 3:</strong> Wait for processing & download voice-only result</p>
-    <a href="https://colab.research.google.com/drive/1Vk-WFlHw9xZNgmO-AKrwv-pXcJ8MuqIv?usp=sharing" target="_blank">
-      <button class="btn">Open Tool</button>
-    </a>
-    <p class="note">⚠️ This uses free Google Colab. Make sure you're logged into your Google account.</p>
-    <iframe src="https://colab.research.google.com/drive/1Vk-WFlHw9xZNgmO-AKrwv-pXcJ8MuqIv?usp=sharing"></iframe>
+    <input type="file" id="videoFile" accept="video/*" />
+    <br />
+    <button class="btn" onclick="processVideo()">Remove Music & Keep Voice</button>
+    <p class="note">This uses free AI (Replicate API). Please wait while we process your video.</p>
+    <div id="output"></div>
   </div>
+  <script>
+    async function processVideo() {
+      const fileInput = document.getElementById('videoFile');
+      const file = fileInput.files[0];
+      if (!file) {
+        alert('Please upload a video file first.');
+        return;
+      }
+
+      const output = document.getElementById('output');
+      output.innerHTML = 'Uploading and processing...';
+
+      // Upload to file.io
+      const tempForm = new FormData();
+      tempForm.append("file", file);
+      try {
+        const uploadRes = await fetch("https://file.io/?expires=1d", {
+          method: "POST",
+          body: tempForm
+        });
+
+        const uploadJson = await uploadRes.json();
+        if (!uploadJson.success) throw new Error("Upload failed");
+
+        const fileUrl = uploadJson.link;
+
+        const replicateRes = await fetch("https://api.replicate.com/v1/predictions", {
+          method: "POST",
+          headers: {
+            "Authorization": "Token r8_R2IlsPM0k3TdefOEmJWtVEJkxmbQMwl3WJHa6",
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            version: "26689e82c8fa6e5c6be216d47ebdb6501103c1e472a2011e7fe91da408c4e163",
+            input: { audio: fileUrl }
+          })
+        });
+
+        const replicateJson = await replicateRes.json();
+
+        output.innerHTML = `✅ Processing started. You can track the result <a href="${replicateJson.urls.get}" target="_blank">here</a>. It may take ~30–60 seconds.`;
+      } catch (err) {
+        console.error(err);
+        output.innerHTML = '❌ Error occurred during upload or processing.';
+      }
+    }
+  </script>
 </body>
 </html>
